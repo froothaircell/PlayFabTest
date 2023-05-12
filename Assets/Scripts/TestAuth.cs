@@ -7,6 +7,8 @@ public class TestAuth : MonoBehaviour
     [SerializeField]
     private string _email;
     [SerializeField]
+    private string _username;
+    [SerializeField]
     private string _password;
 
     [SerializeField]
@@ -16,7 +18,7 @@ public class TestAuth : MonoBehaviour
     {
         if (_loginManager != null)
         {
-            _loginManager.RegisterPlayer(_email, _password);
+            _loginManager.RegisterPlayer(_email, _username, _password);
         }
     }
 

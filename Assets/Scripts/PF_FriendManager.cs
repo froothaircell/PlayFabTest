@@ -1,5 +1,6 @@
 using PlayFab;
 using PlayFab.ClientModels;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -36,50 +37,175 @@ public class PF_FriendManager : MonoBehaviour
         return _friendList.Find(x => x.FriendPlayFabId == playFabId);
     }
 
-    public void AddFriend(string friendId, FriendIdType idType = FriendIdType.PlayFabId)
+    public void AddFriend(string friendId, FriendIdType idType)
     {
-        var request = new AddFriendRequest();
-        switch (idType)
+        SearchUser(idType, friendId, UserInfo =>
         {
-            case FriendIdType.PlayFabId:
-                request.FriendPlayFabId = friendId;
-                break;
-            case FriendIdType.Username:
-                request.FriendUsername = friendId;
-                break;
-            case FriendIdType.Email:
-                request.FriendEmail = friendId;
-                break;
-            case FriendIdType.DisplayName:
-                request.FriendTitleDisplayName = friendId;
-                break;
-        }
-
-        PlayFabClientAPI.AddFriend(request, result =>
-        {
-            Debug.Log("Friend Added Successfully");
-            GetFriends();
-        }, DisplayPlayFabError);
+            if (UserInfo != null)
+            {
+                var friendPlayFabId = UserInfo.PlayFabId;
+                
+                PlayFabClientAPI.ExecuteCloudScript(new ExecuteCloudScriptRequest
+                {
+                    FunctionName = "SendFriendRequest",
+                    FunctionParameter = new { FriendPlayFabId = friendPlayFabId },
+                    GeneratePlayStreamEvent = true
+                }, 
+                result => 
+                {
+                    Debug.Log("Friend Added Successfully");
+                    GetFriends();
+                }, DisplayPlayFabError);
+            }
+        });
     }
 
-    public void RemoveFriend(FriendInfo friendInfo)
+    public void RemoveFriend(string friendId, FriendIdType idType)
     {
-        if (!_friendList.Contains(friendInfo))
+        SearchUser(idType, friendId, UserInfo =>
         {
-            DisplayError($"{friendInfo.Username} is not present in the current friend list");
-        }
+            if (UserInfo != null)
+            {
+                var friendPlayFabId = UserInfo.PlayFabId;
+                
+                // Need to validate if the friend exists in our list
+                if (!_friendList.Exists(x => x.FriendPlayFabId == friendPlayFabId))
+                {
+                    Debug.LogError("User does not exist in friend list");
+                    return;
+                }
 
-        PlayFabClientAPI.RemoveFriend(new RemoveFriendRequest
+                PlayFabClientAPI.ExecuteCloudScript(new ExecuteCloudScriptRequest
+                {
+                    FunctionName = "RemoveFriends",
+                    FunctionParameter = new { FriendPlayFabId = friendPlayFabId },
+                    GeneratePlayStreamEvent = true,
+                }, 
+                result =>
+                {
+                    Debug.Log("Friend Removed Successfully");
+                    GetFriends();
+                }, DisplayPlayFabError);
+            }
+        });
+    }
+
+    public void ApproveFriendRequest(string friendId, FriendIdType idType)
+    {
+        SearchUser(idType, friendId, UserInfo =>
         {
-            FriendPlayFabId = friendInfo.FriendPlayFabId,
-        }, result =>
+            if (UserInfo != null)
+            {
+                var friendPlayFabId = UserInfo.PlayFabId;
+
+                // Need to validate if the friend exists in our list
+                if (!_friendList.Exists(x => x.FriendPlayFabId == friendPlayFabId))
+                {
+                    Debug.LogError("User does not exist in friend list");
+                    return;
+                }
+
+                PlayFabClientAPI.ExecuteCloudScript(new ExecuteCloudScriptRequest
+                {
+                    FunctionName = "AcceptFriendRequest",
+                    FunctionParameter = new { FriendPlayFabId = friendPlayFabId },
+                    GeneratePlayStreamEvent = true,
+                },
+                result =>
+                {
+                    Debug.Log("Friend Request Accepted Successfully");
+                    GetFriends();
+                }, DisplayPlayFabError);
+            }
+        });
+    }
+
+    public void RejectFriendRequest(string friendId, FriendIdType idType)
+    {
+        SearchUser(idType, friendId, UserInfo =>
         {
-            _friendList.Remove(friendInfo);
-        }, DisplayPlayFabError);
+            if (UserInfo != null)
+            {
+                var friendPlayFabId = UserInfo.PlayFabId;
+
+                if (!_friendList.Exists(x => x.FriendPlayFabId == friendPlayFabId))
+                {
+                    Debug.LogError("User does not exist in friend list");
+                    return;
+                }
+
+                PlayFabClientAPI.ExecuteCloudScript(new ExecuteCloudScriptRequest
+                {
+                    FunctionName = "DenyFriendRequest",
+                    FunctionParameter = new { FriendPlayFabId = friendPlayFabId },
+                    GeneratePlayStreamEvent = true,
+                },
+                result =>
+                {
+                    Debug.Log("Friend Request Denied Successfully");
+                    GetFriends();
+                }, DisplayPlayFabError);
+            }
+        });
     }
     #endregion
 
     #region Internal Functions
+    private void SearchUser(FriendIdType friendIdType, string userId, Action<UserAccountInfo> onAccountFetched = null)
+    {
+        switch (friendIdType)
+        {
+            case FriendIdType.PlayFabId:
+                PlayFabClientAPI.GetAccountInfo(new GetAccountInfoRequest { PlayFabId = userId },
+                result =>
+                {
+                    onAccountFetched?.Invoke(result.AccountInfo);
+                    Debug.Log($"Playfab Friends System :: Found friend via PlayFabId: {result.AccountInfo.PlayFabId}");
+                },
+                error =>
+                {
+                    Debug.LogError($"Playfab Friends System :: Failed to find friend via PlayFabId: {error.Error}");
+                });
+                break;
+            case FriendIdType.Username:
+                PlayFabClientAPI.GetAccountInfo(new GetAccountInfoRequest { Username = userId },
+                result =>
+                {
+                    onAccountFetched?.Invoke(result.AccountInfo);
+                    Debug.Log($"Playfab Friends System :: Found friend via Username: {result.AccountInfo.PlayFabId}");
+                },
+                error =>
+                {
+                    Debug.LogError($"Playfab Friends System :: Failed to find friend via Username: {error.Error}");
+                });
+                break;
+            case FriendIdType.Email:
+                PlayFabClientAPI.GetAccountInfo(new GetAccountInfoRequest { Email = userId },
+                result =>
+                {
+                    onAccountFetched?.Invoke(result.AccountInfo);
+                    Debug.Log($"Playfab Friends System :: Found friend via Email: {result.AccountInfo.PlayFabId}");
+                },
+                error =>
+                {
+                    Debug.LogError($"Playfab Friends System :: Failed to find friend via Email: {error.Error}");
+                });
+                break;
+            case FriendIdType.DisplayName:
+                PlayFabClientAPI.GetAccountInfo(new GetAccountInfoRequest { TitleDisplayName = userId },
+                result =>
+                {
+                    onAccountFetched?.Invoke(result.AccountInfo);
+                    Debug.Log($"Playfab Friends System :: Found friend via TitleDisplayName: {result.AccountInfo.PlayFabId}");
+                },
+                error =>
+                {
+                    Debug.LogError($"Playfab Friends System :: Failed to find friend via TitleDisplayName: {error.Error}");
+                });
+                break;
+        }
+    }
+
     private void OnFriendListFetched(List<FriendInfo> friendsList)
     {
         Debug.Log("Displaying Friend List");

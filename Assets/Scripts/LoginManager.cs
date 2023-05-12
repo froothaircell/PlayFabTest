@@ -9,9 +9,10 @@ public class LoginManager : MonoBehaviour
     public static bool IsLoggedIn => PlayFabClientAPI.IsClientLoggedIn();
 
     private string _email = string.Empty;
+    private string _username = string.Empty;
     private string _password = string.Empty;
 
-    public void RegisterPlayer(string email, string password)
+    public void RegisterPlayer(string email, string username, string password)
     {
         if (IsLoggedIn)
         {
@@ -19,13 +20,16 @@ public class LoginManager : MonoBehaviour
         }
 
         _email = email;
+        _username = username;
         _password = password;
 
         PlayFabClientAPI.RegisterPlayFabUser(new RegisterPlayFabUserRequest
         {
             Email = email,
+            Username = username,
+            DisplayName = username,
             Password = password,
-            RequireBothUsernameAndEmail = false,
+            RequireBothUsernameAndEmail = true,
         }, OnRegistrationSuccess, DisplayPlayFabError);
     }
 

@@ -10,6 +10,9 @@ public class TestFriends : MonoBehaviour
     [SerializeField]
     private string _email = string.Empty;
 
+    [SerializeField]
+    private string _username = string.Empty;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -42,8 +45,23 @@ public class TestFriends : MonoBehaviour
     {
         if (_friendManager != null)
         {
-            //_friendManager.SelectFriend()
-            //_friendManager.RemoveFriend()
+            _friendManager.RemoveFriend(_username, FriendIdType.Username);
+        }
+    }
+
+    public void ApproveRequest()
+    {
+        if (_friendManager != null)
+        {
+            _friendManager.ApproveFriendRequest(_username, FriendIdType.Username);
+        }
+    }
+
+    public void RejectRequest()
+    {
+        if (_friendManager != null)
+        {
+            _friendManager.RejectFriendRequest(_username, FriendIdType.Username);
         }
     }
 }
