@@ -1,5 +1,6 @@
 using PlayFab;
 using PlayFab.ClientModels;
+using PlayFabTests;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,6 +12,9 @@ public class LoginManager : MonoBehaviour
     private string _email = string.Empty;
     private string _username = string.Empty;
     private string _password = string.Empty;
+    private static string _playfabID = string.Empty;
+
+    public static string PlayFabId => _playfabID;
 
     public void RegisterPlayer(string email, string username, string password)
     {
@@ -67,6 +71,8 @@ public class LoginManager : MonoBehaviour
     private void OnLoginSuccess(LoginResult result)
     {
         Debug.Log("Login Successful");
+        _playfabID = result.PlayFabId;
+        //PlayerAlertManager.SetRecurringNotificationTask();
     }
 
     private void DisplayPlayFabError(PlayFabError error)
