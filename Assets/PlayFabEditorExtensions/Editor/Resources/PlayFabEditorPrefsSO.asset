@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d0199c11aa6f514784c5c69cd8378d8, type: 3}
   m_Name: PlayFabEditorPrefsSO
   m_EditorClassIdentifier: 
-  DevAccountEmail: 
-  DevAccountToken: 
+  DevAccountEmail: farasat.ali@frag-games.com
+  DevAccountToken: o1jji73p7spxfqsbhjjoz5aga8fsus69tbkhotkwgtejioq1msnu5e1qw6zscgamkzettkdmkkgkkry8kjhpzmfmczmx7syfm693o4ukp85d7kxmhr1aqtkr1szu8quip569q44dp7csdbbdw4g38bzmfsutrqfyx9zksxycpu4usd5crc3wdy9qrmftzben8ygpchip
   AadAuthorization: 
-  SelectedStudio: 
-  SdkPath: 
+  SelectedStudio: My Game Studio
+  SdkPath: Assets/PlayFabSDK
   EdExPath: 
   LocalCloudScriptPath: 
   PanelIsShown: 0
-  curMainMenuIdx: 0
+  curMainMenuIdx: 1
   curSubMenuIdx: 0

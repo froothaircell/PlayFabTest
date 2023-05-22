@@ -1,3 +1,4 @@
+using PlayFabTests;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -36,5 +37,15 @@ public class TestAuth : MonoBehaviour
         {
             _loginManager.LogoutPlayer();
         }
+    }
+
+    public void Ping()
+    {
+        LoginManager.Ping();
+    }
+
+    public void CheckOnlineStatus()
+    {
+        LoginManager.CheckOnlineStatus();
     }
 }

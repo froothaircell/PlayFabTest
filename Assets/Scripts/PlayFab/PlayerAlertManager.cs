@@ -8,7 +8,6 @@ using Cysharp.Threading.Tasks;
 using Spades.Managers.GeneralUtils;
 using System.Threading;
 using PlayFabTests.Utils;
-using PlayFab.PfEditor.Json;
 using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
@@ -18,6 +17,12 @@ namespace PlayFabTests
     public class PlayerAlertManager : MonoBehaviour
     {
         public const string PlayerAlertKey = "PlayerAlerts";
+        public const string AlertKey = "PlayerAlert";
+
+        private static int _previousCount = 0;
+        private static Dictionary<string, PlayerAlert> PlayerAlerts = new Dictionary<string, PlayerAlert>();
+
+        public static Action<PlayerAlert> OnAlertReceived;
 
         private void Start()
         {
@@ -39,16 +44,35 @@ namespace PlayFabTests
             }, DisplayPlayFabError);
         }
 
-        private static void DisplayPlayFabError(PlayFabError error)
+        public static void SendNotification(string playFabId, PlayerAlert playerAlert)
         {
-            Debug.Log(error.GenerateErrorReport());
-
-            // Run any exception logic here
+            PlayFabClientAPI.ExecuteCloudScript(new ExecuteCloudScriptRequest
+            {
+                FunctionName = "SendPlayerAlert",
+                FunctionParameter = new
+                {
+                    AlertingPlayerPlayFabId = playFabId,
+                    AlertType = playerAlert.AlertType.ToString(),
+                    AlertMessage = playerAlert.AlertMessage.ToString(),
+                }
+            }, result =>
+            {
+                Debug.Log("Friend Request Sent");
+            }, DisplayPlayFabError);
         }
 
         public static void SetRecurringNotificationTask()
         {
             TaskUtilitiesManager.RunTask(RecurringNotificationTask);
+        }
+
+        public static void StartNotificationCheck()
+        {
+            PlayFabClientAPI.GetUserData(new GetUserDataRequest
+            {
+                PlayFabId = LoginManager.PlayFabId,
+                Keys = new List<string>() { AlertKey },
+            }, PopulateNotifications, DisplayPlayFabError);
         }
 
         private static async UniTask RecurringNotificationTask(CancellationToken token)
@@ -63,57 +87,54 @@ namespace PlayFabTests
             }
         }
 
-        private static void StartNotificationCheck()
-        {
-            var userDataReq = new GetUserDataRequest
-            {
-                PlayFabId = LoginManager.PlayFabId,
-                Keys = new List<string>() { PlayerAlertKey }
-            };
-
-            var cloudScriptReq = new ExecuteCloudScriptRequest
-            {
-                FunctionName = "CheckNotifications",
-                FunctionParameter = default,
-                GeneratePlayStreamEvent = true
-            };
-
-            PlayFabClientAPI.GetUserData(userDataReq, AlertData =>
-            {
-                AlertData.Data.TryGetValue(PlayerAlertKey, out var countJson);
-                JsonWrapper.DeserializeObject<JsonObject>(countJson.Value).TryGetValue(PlayerAlertKey, out var count);
-                if (Convert.ToInt32(count) > 0)
-                {
-                    PlayFabClientAPI.ExecuteCloudScript(cloudScriptReq, PopulateNotifications, DisplayPlayFabError);
-                }
-            }, DisplayPlayFabError);
-        }
-
-        private static void PopulateNotifications(ExecuteCloudScriptResult result)
+        private static void PopulateNotifications(GetUserDataResult result)
         {
             // Logic to populate the scripts
+            Debug.Log(result.Data);
 
-            var resJson = JsonWrapper.SerializeObject(result.FunctionResult);
-            JsonWrapper.DeserializeObject<JsonObject>(resJson).TryGetValue("data", out var dataJson);
-            var dataJsonString = JsonWrapper.SerializeObject(dataJson);
-            dataJsonString = dataJsonString.Replace("\\\\\\", "");
-            dataJsonString = dataJsonString.Replace("\\", "");
-            dataJsonString = dataJsonString.Replace("\"{", "{");
-            dataJsonString = dataJsonString.Replace("}\"", "}");
+            Dictionary<string, object> data = new Dictionary<string, object>();
+            foreach (var pair in result.Data)
+            {
+                data.Add(pair.Key, pair.Value.Value as object);
+            }
 
-            JsonWrapper.DeserializeObject<JsonObject>(dataJsonString).TryGetValue("PlayerAlerts", out var dataJson2);
-            dataJsonString = JsonWrapper.SerializeObject(dataJson2);
+            // Callback script
+            if (data.Count > 0 && data.ContainsKey(AlertKey))
+            {
+                data.TryGetValue(AlertKey, out var value);
+                var PlayerAlerts_temp = JsonConvert.DeserializeObject<Dictionary<string, PlayerAlert>>(value.ToString());
 
-            // dataJsonString = dataJsonString.Substring(1, dataJsonString.Length - 2);
+                if (PlayerAlerts_temp.Count > 0 && PlayerAlerts_temp.Count > _previousCount)
+                {
+                    int start = PlayerAlerts.Count;
+                    for (int i = start; i < PlayerAlerts_temp.Count; i++)
+                    {
+                        PlayerAlerts.Add(i.ToString(), PlayerAlerts_temp[i.ToString()]);
+                        OnAlertReceived?.Invoke(PlayerAlerts.Last().Value); // Alert raised in the for loop
+                    }
 
-            PlayerAlert resObj = JsonConvert.DeserializeObject<PlayerAlert>(dataJsonString);
+                    _previousCount = PlayerAlerts.Count;
 
-            Debug.Log(resObj);
+                    // raise alert here. there has been and alert added
 
-            
-            // Here we fetch each value and cast it to the desired type
-            //resObj.TryGetValue("SomeKey", out var someValue);
-            //int castValue = (int)someValue;
+                }
+                else
+                {
+                    // do nothing here as there was no alert found on server.
+                }
+            }
+            else
+            {
+                // Playgig.UpdatePlayerData
+                // UpdatePlayerData(AlertKey, "{}");
+            }
+        }
+
+        private static void DisplayPlayFabError(PlayFabError error)
+        {
+            Debug.Log(error.GenerateErrorReport());
+
+            // Run any exception logic here
         }
     }
 
@@ -208,6 +229,15 @@ namespace PlayFabTests
             return timeRemaining;
         }
 
+        public static double GetTime()
+        {
+            double dateReturn =
+                Math.Round((double) DateTimeOffset.Now.ToUnixTimeMilliseconds());
+            // note that (..date..).TotalMilliseconds returns a number such as
+            // 1606465207140.45 where
+            // 1606465207140 is ms and the ".45" is a fraction of a ms
+            return dateReturn;
+        }
 
 
         string ConvertDays(DateTime dtDateTime)
